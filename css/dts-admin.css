@@ -1,0 +1,19 @@
+
+#dts-table th, #dts-table td {
+  border: 1px solid #bbb;
+  padding: 4px;
+}
+
+
+.dts-developer-list-header h2 {
+  text-align: center;
+}
+
+.dts-developer-list {
+  display: flex;
+  padding-bottom: 20px;
+}
+
+.dts-developer-list .list-body {
+  padding-right: 20px;
+}
