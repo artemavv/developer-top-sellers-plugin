@@ -7,13 +7,14 @@ class Dts_Core {
   protected const SORT_AZ = 'A_Z';
   protected const SORT_ZA = 'Z_A';
   
-  protected const ACTION_SAVE = 'Save';
-  protected const ACTION_CLEAR = 'Erase data';
-  protected const ACTION_CALCULATE = 'Calculate';
-  protected const ACTION_CALCULATE2 = 'Calculate last 10 days';
-  protected const ACTION_CALCULATE3 = 'Calculate 10 days before 10';
-  protected const ACTION_CALCULATE4 = 'Calculate 10 days before 20';
-  protected const ACTION_CRONTEST = 'Test scheduled event';
+  protected const ACTION_SAVE             = 'Save';
+  protected const ACTION_CLEAR            = 'Erase data';
+  protected const ACTION_CALCULATE        = 'Calculate';
+  protected const ACTION_CALCULATE2       = 'Calculate last 10 days';
+  protected const ACTION_CALCULATE3       = 'Calculate 10 days before 10';
+  protected const ACTION_CALCULATE4       = 'Calculate 10 days before 20';
+  protected const ACTION_CRONTEST         = 'Test scheduled event';
+  protected const ACTION_RANDOM           = 'Generate random sales data';
   
 	public static $prefix = 'dts_';
 	
