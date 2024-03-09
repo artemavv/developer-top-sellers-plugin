@@ -63,8 +63,20 @@ class Dts_Plugin extends Dts_Core {
   public function register_admin_styles_and_scripts() {
     
     $file_src = plugins_url( 'css/dts-admin.css', $this->plugin_root );
+    wp_enqueue_style( 'dts-admin', $file_src, array(), DTS_VERSION );
+
+    $this->enqueue_slick_slider_styles_scripts();
+  }
+  
+  public function enqueue_slick_slider_styles_scripts() {
     
-    wp_enqueue_style( 'dts-admin', $file_src, array(), '0.1' );
+    $slick_src = plugins_url( 'slick/slick.css', $this->plugin_root );
+    wp_enqueue_style( 'dts-slick', $slick_src, array(), DTS_VERSION );
+    
+    $slick_theme_src = plugins_url( 'slick/slick-theme.css', $this->plugin_root );
+    wp_enqueue_style( 'dts-slick-theme', $slick_theme_src, array(), DTS_VERSION );
+    
+    wp_enqueue_script( 'dts-slick-js', plugins_url('slick/slick.min.js', $this->plugin_root), array(), DTS_VERSION );
   }
   
 	public function add_page_to_menu() {
@@ -647,11 +659,23 @@ class Dts_Plugin extends Dts_Core {
   }
   
   public function register_styles_and_scripts() {
-    wp_enqueue_script( 'dts-front-js', plugins_url('/js/dts-front.js', $this->plugin_root), array( 'jquery' ), DTS_VERSION, true );
-		wp_localize_script( 'dts-front-js', 'scs_settings', array(
-			'ajax_url'			=> admin_url( 'admin-ajax.php' ),
-		) );
-		
-		wp_enqueue_style( 'dts-front', plugins_url('/css/dts-front.css', $this->plugin_root), array(), DTS_VERSION );
+    
+    $debug_enabled = $_GET['dts-debug'] ?? false; 
+    
+    // add Slick styles and scripts for "Shop" page ( product archive page)
+    // which is supposed to have developer slider shortcode & top sellers list
+    if ( is_post_type_archive( 'product' ) || $debug_enabled ) { 
+      
+      wp_enqueue_script( 'dts-front-js', plugins_url('/js/dts-front.js', $this->plugin_root), array( 'jquery' ), DTS_VERSION, true );
+      wp_localize_script( 'dts-front-js', 'scs_settings', array(
+        'ajax_url'			=> admin_url( 'admin-ajax.php' ),
+      ) );
+
+      wp_enqueue_style( 'dts-front', plugins_url('/css/dts-front.css', $this->plugin_root), array(), DTS_VERSION );
+
+    
+      $this->enqueue_slick_slider_styles_scripts();
+    }
+    
   }
 }

@@ -114,7 +114,7 @@ class Dts_Frontend extends Dts_Core {
       
       if ( $img_id ) {
         $image_src = wp_get_attachment_image_src( $img_id, 'full' );
-        $out .= '<div><a href="/developer/' . $slug . '"><img src=' . $image_src . '/></a></div>';
+        $out .= '<div><a href="/developer/' . $slug . '"><img src="' . $image_src[0] . '" /></a></div>';
       }
       else {
         if ( $debug_display ) {
@@ -126,7 +126,10 @@ class Dts_Frontend extends Dts_Core {
     
     $out .= '</div>';
     $out .= '</div>';
+   
+    $out .= '<script> jQuery(document).ready( function(){ jQuery(".slick-slider").slick({}); });';
     
+    $out .= '</script>';
     return $out;
   }
   
