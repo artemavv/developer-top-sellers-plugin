@@ -6,7 +6,7 @@ Description: Gathers statistics about top selling developers and provides shortc
 Author: Artem Avvakumov
 License: GPL2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Version: 0.1.1
+Version: 0.1.2
 */
 
 /*
@@ -28,7 +28,7 @@ Version: 0.1.1
 require_once 'includes.php';
 
 
-define( 'DTS_VERSION', '0.1.1' );
+define( 'DTS_VERSION', '0.1.2' );
 define( 'DTS_TEXT_DOMAIN', 'developer-top-sellers' );
 
 $plugin_root = __FILE__;

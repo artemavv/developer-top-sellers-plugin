@@ -107,7 +107,7 @@ class Dts_Frontend extends Dts_Core {
    */
   public static function render_developer_slider( array $devs, $mode = 'desktop', $debug_display = false ) {
     
-    $out = '<div class="dts-developer-slider">';
+    $out = '<div class="dts-developer-slider dts-developer-slider-' . $mode . '">';
     $out .= '<div class="slick-slider">';
     
     foreach ( $devs as $slug => $img_id ) {
@@ -127,7 +127,7 @@ class Dts_Frontend extends Dts_Core {
     $out .= '</div>';
     $out .= '</div>';
    
-    $out .= '<script> jQuery(document).ready( function(){ jQuery(".slick-slider").slick({}); });';
+    $out .= '<script> jQuery(document).ready( function(){ jQuery(".dts-developer-slider-' . $mode . ' .slick-slider").slick({}); });';
     
     $out .= '</script>';
     return $out;

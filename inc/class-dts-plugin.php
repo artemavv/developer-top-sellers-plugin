@@ -68,6 +68,27 @@ class Dts_Plugin extends Dts_Core {
     $this->enqueue_slick_slider_styles_scripts();
   }
   
+    
+  public function register_styles_and_scripts() {
+    
+    $debug_enabled = $_GET['dts-debug'] ?? false; 
+    
+    // add Slick styles and scripts for "Shop" page ( product archive page)
+    // which is supposed to have developer slider shortcode & top sellers list
+    if ( is_post_type_archive( 'product' ) || $debug_enabled ) { 
+      
+      wp_enqueue_script( 'dts-front-js', plugins_url('/js/dts-front.js', $this->plugin_root), array( 'jquery' ), DTS_VERSION, true );
+      wp_localize_script( 'dts-front-js', 'scs_settings', array(
+        'ajax_url'			=> admin_url( 'admin-ajax.php' ),
+      ) );
+
+      wp_enqueue_style( 'dts-front', plugins_url('/css/dts-front.css', $this->plugin_root), array(), DTS_VERSION );
+
+    
+      $this->enqueue_slick_slider_styles_scripts();
+    }
+  }
+  
   public function enqueue_slick_slider_styles_scripts() {
     
     $slick_src = plugins_url( 'slick/slick.css', $this->plugin_root );
@@ -657,25 +678,7 @@ class Dts_Plugin extends Dts_Core {
     </form>
     <?php 
   }
-  
-  public function register_styles_and_scripts() {
-    
-    $debug_enabled = $_GET['dts-debug'] ?? false; 
-    
-    // add Slick styles and scripts for "Shop" page ( product archive page)
-    // which is supposed to have developer slider shortcode & top sellers list
-    if ( is_post_type_archive( 'product' ) || $debug_enabled ) { 
-      
-      wp_enqueue_script( 'dts-front-js', plugins_url('/js/dts-front.js', $this->plugin_root), array( 'jquery' ), DTS_VERSION, true );
-      wp_localize_script( 'dts-front-js', 'scs_settings', array(
-        'ajax_url'			=> admin_url( 'admin-ajax.php' ),
-      ) );
 
-      wp_enqueue_style( 'dts-front', plugins_url('/css/dts-front.css', $this->plugin_root), array(), DTS_VERSION );
-
-    
-      $this->enqueue_slick_slider_styles_scripts();
-    }
     
   }
 }
