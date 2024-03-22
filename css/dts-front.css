@@ -13,6 +13,29 @@
   padding-right: 20px;
 }
 
+.dts-developer-list {
+  display: flex;
+  padding-bottom: 20px;
+  justify-content: space-evenly;
+}
+
+.dts-list-switcher {
+  margin: 5px 10px;
+  float: right;
+  text-decoration: underline;
+  color: deeppink;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.dts-show-all {
+  margin: 5px 10px;
+  float: left;
+  text-decoration: underline;
+  color: deeppink;
+  font-weight: bold;
+  cursor: pointer;
+}
 
 @media only screen and (max-width: 500px) {
   

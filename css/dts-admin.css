@@ -1,5 +1,5 @@
 
-#dts-table th, #dts-table td {
+.dts-table th, .dts-table td {
   border: 1px solid #bbb;
   padding: 4px;
 }

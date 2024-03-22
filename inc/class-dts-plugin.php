@@ -14,6 +14,9 @@ class Dts_Plugin extends Dts_Core {
   
   public const OPTION_NAME_FULL = 'developer_sales_full';
 
+  static $developers;
+  static $developer_slugs;
+    
   public function __construct( $plugin_root ) {
 
 		$this->plugin_root = $plugin_root;
@@ -64,18 +67,18 @@ class Dts_Plugin extends Dts_Core {
     
     $file_src = plugins_url( 'css/dts-admin.css', $this->plugin_root );
     wp_enqueue_style( 'dts-admin', $file_src, array(), DTS_VERSION );
-
-    $this->enqueue_slick_slider_styles_scripts();
+    
+    $this->register_styles_and_scripts( true );
   }
   
     
-  public function register_styles_and_scripts() {
+  public function register_styles_and_scripts( $force = false ) {
     
     $debug_enabled = $_GET['dts-debug'] ?? false; 
     
     // add Slick styles and scripts for "Shop" page ( product archive page)
     // which is supposed to have developer slider shortcode & top sellers list
-    if ( is_post_type_archive( 'product' ) || $debug_enabled ) { 
+    if ( $force || is_post_type_archive( 'product' ) || $debug_enabled ) { 
       
       wp_enqueue_script( 'dts-front-js', plugins_url('/js/dts-front.js', $this->plugin_root), array( 'jquery' ), DTS_VERSION, true );
       wp_localize_script( 'dts-front-js', 'scs_settings', array(
@@ -97,7 +100,7 @@ class Dts_Plugin extends Dts_Core {
     $slick_theme_src = plugins_url( 'slick/slick-theme.css', $this->plugin_root );
     wp_enqueue_style( 'dts-slick-theme', $slick_theme_src, array(), DTS_VERSION );
     
-    wp_enqueue_script( 'dts-slick-js', plugins_url('slick/slick.min.js', $this->plugin_root), array(), DTS_VERSION );
+    wp_enqueue_script( 'dts-slick-js', plugins_url('slick/slick.min.js', $this->plugin_root), array('jquery'), DTS_VERSION );
   }
   
 	public function add_page_to_menu() {
@@ -135,6 +138,23 @@ class Dts_Plugin extends Dts_Core {
       switch ($_POST['dts-button'] ) {
         case self::ACTION_CALCULATE:
           $developers = self::get_developer_list();
+          
+          /**
+           * This is array of sales for each separate day [ $day => $sales ] 
+           * Day is stored in Y-m-d format
+           * 
+           * Day sales are stored as array with separate item for each developer: [ $developer_id => $sales_data ]
+           * 
+           * Sales data for each developer consists of two items: 
+           * 
+           * [
+           *    'developer'   => $total_sum
+           *    'products'    => $product_sales
+           * ]
+           * 
+           * Product sales are listed for each product separately: [ $product_id => $sales_sum ]
+           * 
+           */
           $dev_sales = get_option( self::OPTION_NAME_FULL, array() );
     
           $date = '2024-' . $_POST['calc-date'];
@@ -213,10 +233,11 @@ class Dts_Plugin extends Dts_Core {
    * If $use_slug is false, returns array [ $developer_id => $sales ], 
    * otherwise returns array [ $developer_slug => $sales ]
    *
+   * @param integer $num
    * @param bool $use_slug
    * @return array 
    */
-  public static function get_top_sellers( $num = 10, $use_slug = true ) {
+  public static function get_top_sellers( int $num = 10, bool $use_slug = true ) {
     $dev_sales = self::get_total_developer_sales( $use_slug );
     
     arsort( $dev_sales );
@@ -234,7 +255,58 @@ class Dts_Plugin extends Dts_Core {
   
   
   /**
-   * Get total sales for all developers, for specified number of days
+   * Get top N selling products.
+   * 
+   * Returns array [ $product_id => $product_name ], 
+   * otherwise returns array [ $developer_slug => $sales ]
+   *
+   * @param bool $use_slug
+   * @return array 
+   */
+  public static function get_top_selling_products( int $num = 10 ) {
+    $product_sales = self::get_total_product_sales();
+    
+    arsort( $product_sales );
+    
+    $top_products = array();
+    
+    if ( is_array( $product_sales ) ) {
+      $top_sellers = array_slice( $product_sales, 0, $num, true );
+            
+      foreach ( $top_sellers as $product_id => $sales_total ) {
+        $data = self::get_product_name_and_url( $product_id ); // may return false, e.g. if product is private
+        
+        if ( $data !== false ) {
+          $top_products[] = $data;
+        }
+      }
+
+    }
+    
+    return $top_products;
+  }
+  
+  
+  
+  /**
+   * @param int $product_id
+   * @return array [ name, url ]
+   */
+  public static function get_product_name_and_url( int $product_id ) {
+    
+    $product = get_post( $product_id );
+    
+    if ( $product && get_post_status( $product ) == "publish" ) {
+      $name = $product->post_title;
+      $permalink = get_permalink( $product );
+      return [ $name, $permalink ];
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Get total sales for all developers, summing for specified number of days
    * 
    * @param bool $use_slug
    * @param int $number_of_days
@@ -257,7 +329,7 @@ class Dts_Plugin extends Dts_Core {
       foreach ( $dev_sales as $date => $day_sales ) {
         if ( in_array( $date, $actual_dates ) ) {
           foreach ( $developers as $developer ) {
-            $developer_sales = $day_sales[$developer->term_id];
+            $developer_sales = $day_sales[$developer->term_id]['developer'];
 
             $key = $use_slug ? $developer->slug : $developer->term_id;
             $arr_developers[ $key ] += $developer_sales;
@@ -270,19 +342,101 @@ class Dts_Plugin extends Dts_Core {
   }
   
   
+  /**
+   * Get total sales for all products, summing for specified number of days
+   * 
+   * @param int $number_of_days
+   * @return array [ $product_id => $total ]
+   */
+  public static function get_total_product_sales( int $number_of_days = 30 ) {
+		$arr_products = array();
+    
+    $dev_sales = get_option( self::OPTION_NAME_FULL, array() );
+        
+    $actual_dates = self::generate_last_n_days( $number_of_days );
+      
+    if ( is_array( $dev_sales ) && count( $dev_sales ) ) {
+      foreach ( $dev_sales as $date => $day_sales ) {
+        if ( in_array( $date, $actual_dates ) ) {
+          foreach ( $day_sales as $developer_id => $sales_data ) {
+            $product_sales = $sales_data['products'];
+
+            foreach ( $product_sales as $product_id => $sale_amount ) {
+              if ( ! isset($arr_products[ $product_id ] ) ) {
+                $arr_products[ $product_id ] = 0;
+              }
+              
+              $arr_products[ $product_id ] += $sale_amount;
+            }
+          }
+        }
+      }
+    }
+    
+    return $arr_products;
+  }
+  
+  
   public static function generate_random_sales( int $number_of_days = 30 ) {
     
+    /*
+    * This is array of sales for each separate day [ $day => $sales ] 
+    * Day is stored in Y-m-d format
+    * 
+    * Day sales are stored as array with separate item for each developer: [ $developer_id => $sales_data ]
+    * 
+    * Sales data for each developer consists of two items: 
+    * 
+    * [
+    *    'developer'   => $total_sum
+    *    'products'    => $product_sales
+    * ]
+    * 
+    * Product sales are listed for each product separately: [ $product_id => $sales_sum ]
+    * 
+    */
+    
     $dev_sales = array();
-    $developers     = get_terms( array( 'taxonomy' => 'developer', 'hide_empty' => true ) );
+    $developers          = get_terms( array( 'taxonomy' => 'developer', 'hide_empty' => true ) );
+    $developer_products  = self::get_active_woocommerce_products(); //  [ $developer_slug => [ products ] ]
     
     $actual_dates = self::generate_last_n_days( $number_of_days );
       
-    foreach ( $actual_dates as $date) {
+    foreach ( $actual_dates as $date ) {
       $random_day_sales = array();
       
       foreach ( $developers as $developer ) {
-        $min = 260 - ord( $developer->slug );
-        $random_day_sales[$developer->term_id] = rand( $min * 40, $min * 50 );
+        
+        $random_day_sales[$developer->term_id] = array(
+          'developer' => 0,
+          'products'  => array()
+        );
+        
+        $min = 260 - ord( $developer->slug ); // make sure that ABC developer have better sales
+        
+        $max_total_sales = rand( $min * 40, $min * 50 );
+        $actual_total_sales = 0;
+        $available_sales = $max_total_sales;
+        
+        if ( isset( $developer_products[ $developer->slug ] ) ) {
+          
+          foreach ( $developer_products[ $developer->slug ] as $product_id => $product_name ) {
+            
+            if ( $available_sales > 0 ) {
+              $product_sales = rand( 0, $available_sales );
+              $random_day_sales[$developer->term_id]['products'][$product_id] = $product_sales;
+
+              $actual_total_sales += $product_sales;
+              $available_sales -= $product_sales;
+            }
+            else {
+              $random_day_sales[$developer->term_id]['products'][$product_id] = 0;
+              $available_sales = 0;
+            }
+          }
+        }
+        
+        $random_day_sales[$developer->term_id]['developer'] = $actual_total_sales;
       }
       
       $dev_sales[$date] = $random_day_sales;
@@ -372,34 +526,84 @@ class Dts_Plugin extends Dts_Core {
     $free_order_ids = self::get_free_order_ids( $date );
     $completed_order_ids = self::get_completed_order_ids( $date, $free_order_ids );
 
-    $dev_sales = array();
+    $sales_info = array();
     
     foreach ( $developers as $dev_id => $dev_name ) {
-      $dev_sales[$dev_id] = self::calculate_developer_sales( $dev_id, $dev_name, $completed_order_ids );
+      
+      $sales_info[$dev_id] = array();
+      
+      $dev_and_product_sales = self::gather_developer_sales( $dev_id, $dev_name, $completed_order_ids );
+      
+      $sales_info[$dev_id]['developer'] = self::extract_developer_sales( $dev_and_product_sales );
+      $sales_info[$dev_id]['products'] = self::extract_product_sales( $dev_and_product_sales );
     }
       
-    return $dev_sales;
+    return $sales_info;
   }
   
+  /**
+   * Calculates total sum of developer sales from given array
+   * Expects to receive array of all developer sales for a single day
+   * 
+   * @param array $order_sales
+   * @return float $total_sales
+   */
+  public static function extract_developer_sales( array $order_sales ) {
+    
+    $total_sales = 0;
+    
+    foreach( $order_sales as $order ) {
+      foreach( $order as $order_product ) {
+        $total_sales += $order_product['price_after_coupon'];
+      }
+    }
+    
+    return $total_sales;
+  }
+  
+  /**
+   * Calculates separate product sales from given array
+   * Expects to receive array of all developer sales for a single day
+   * 
+   * @param array $order_sales
+   * @return array [ product_id => sales_amount ]
+   */
+  public static function extract_product_sales( array $order_sales ) {
+    
+    $product_sales = array();
+    
+    foreach( $order_sales as $order ) {
+      foreach( $order as $order_product ) {
+
+        $product_id = $order_product['product_id'];
+
+        if ( ! isset( $product_sales[$product_id] ) ) {
+          $product_sales[$product_id] = 0;
+        }
+
+        $product_sales[$product_id] += $order_product['price_after_coupon'];
+      }
+    }
+    
+    return $product_sales;
+  }
+    
   /**
    * 
    * @param string $dev_name
    * @param string $date format Y-m-d
    */
-  public static function calculate_developer_sales( int $dev_id, string $dev_name, array $completed_order_ids ) {
+  public static function gather_developer_sales( int $dev_id, string $dev_name, array $completed_order_ids ) {
     
     $dev_orders = self::get_developer_orders($dev_name, $completed_order_ids );
-    $sales = 0;
+    
+    $dev_sales = array();
     
     foreach ( $dev_orders as $order_id ) {
-      $order_sales = self::calc_developer_sales_in_order( $dev_id, $dev_name, $order_id );
-      
-      foreach( $order_sales as $sale ) {
-        $sales += $sale['price_after_coupon'];
-      }
+      $dev_sales[$order_id] = self::calc_developer_sales_in_order( $dev_id, $dev_name, $order_id );
     }
     
-    return $sales;
+    return $dev_sales;
   }
   
   /**
@@ -556,8 +760,8 @@ class Dts_Plugin extends Dts_Core {
         $value = '--';
         
         if ( isset( $dev_sales[$date]) && is_array($dev_sales[$date]) ) {
-          $value = $dev_sales[$date][$dev_id] ?? '---';
-          $total_value += $dev_sales[$date][$dev_id] ?? 0;
+          $value = $dev_sales[$date][$dev_id]['developer'] ?? '---';
+          $total_value += $dev_sales[$date][$dev_id]['developer'] ?? 0;
         }
         
         $out = "<td>" . $value . "</td>" . $out;
@@ -569,6 +773,44 @@ class Dts_Plugin extends Dts_Core {
     return $out;
   }
   
+  public static function render_30_days_product_sales( $dev_sales, $dev_id, $product_id ) {
+    $out = '';
+    
+    $total_value = 0;
+    for ($i = 0; $i < 30; $i++) {
+        
+        $date = date('Y-m-d', strtotime("-$i days") );
+        
+        $value = '--';
+        
+        if ( isset( $dev_sales[$date]) && is_array($dev_sales[$date]) ) {
+          $value = $dev_sales[$date][$dev_id]['products'][$product_id] ?? '---' . $product_id ;
+          $total_value += $dev_sales[$date][$dev_id]['products'][$product_id] ?? 0;
+        }
+        
+        $out = "<td>" . $value . "</td>" . $out;
+    }
+    
+    
+    $out = "<td class='total'>" . $total_value . "</td>" . $out;
+    
+    return $out;
+  }
+  
+  public static function get_developer_id_by_slug( $slug ) {
+        
+    $developer_name = self::$developer_slugs[ $slug ];
+    
+    foreach ( self::$developers as $dev_id => $dev_name ) {
+      if ( $dev_name === $developer_name ) {
+        return $dev_id;
+      }
+    }
+    
+    return false;
+  }
+  
+  
 	public function render_settings_page() {
     
     $action_results = '';
@@ -577,10 +819,16 @@ class Dts_Plugin extends Dts_Core {
 			$action_results = $this->do_action();
 		}
 		
-    $developers = self::get_developer_list();
+    self::$developers = self::get_developer_list();
+    self::$developer_slugs = self::get_developer_list( true );
+    $developer_products = self::get_active_woocommerce_products();
+    
     self::load_options();
     
     $dev_sales = self::get_30_days_sales(); 
+    
+    //echo(' TTT <pre>' . print_r( $developer_products, 1) . '</pre>');
+    //echo(' TTT $dev_sales<pre>' . print_r( $dev_sales, 1) . '</pre>');
     ?> 
 
 		<h1><?php esc_html_e('Statistics for Top Developers', 'dts'); ?></h1>
@@ -611,19 +859,51 @@ class Dts_Plugin extends Dts_Core {
       
       <h3>Developer sales in last 30 days</h3>
       
-      <table id="dts-table">
+      <table class="dts-table">
         <thead>
           <th>Developer name</th>
           <th>Total sales</th>
           <?php echo self::get_30_days_header(); ?>
         </thead>
         <tbody>
-          <?php foreach  ( $developers as $dev_id => $dev_name ): ?>
+          <?php foreach ( self::$developers as $dev_id => $dev_name ): ?>
             <?php $dev_sales_row = self::render_30_days_sales( $dev_sales, $dev_id ); ?>
             <tr>
               <td><?php echo $dev_name; ?></td>
               <?php echo $dev_sales_row; ?>
             </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+      
+      <h3>Product sales in last 30 days</h3>
+      
+      <table class="dts-table">
+        <thead>
+          <th>Developer name</th>
+          <th>Product name</th>
+          <th>Total sales</th>
+          <?php echo self::get_30_days_header(); ?>
+        </thead>
+        <tbody>
+          <?php foreach ( $developer_products as $dev_slug => $dev_products ): ?>
+            <?php 
+              $dev_id = self::get_developer_id_by_slug( $dev_slug );
+              
+              if ( $dev_id === false ) {
+                continue; 
+              }
+              $dev_name = self::$developer_slugs[$dev_slug]; 
+            ?> 
+
+            <?php foreach ( $dev_products as $product_id => $product_name ): ?>
+              <tr>
+                <td><?php echo $dev_name; ?></td>
+                <td><?php echo $product_name; ?></td>
+                <?php $dev_sales_row = self::render_30_days_product_sales( $dev_sales, $dev_id, $product_id ); ?>
+                <?php echo $dev_sales_row; ?>
+              </tr>
+            <?php endforeach; ?>
           <?php endforeach; ?>
         </tbody>
       </table>
@@ -638,6 +918,9 @@ class Dts_Plugin extends Dts_Core {
       <p class="submit">  
        <input type="submit" id="dts-button-erase" name="dts-button" class="button button-primary" value="<?php echo self::ACTION_CLEAR; ?>" />
       </p>
+      
+      
+      <H1>TOP SELLING PRODUCTS calculations</H1>
       
       <h2>Calculate for a single day</h2>
       
@@ -679,6 +962,4 @@ class Dts_Plugin extends Dts_Core {
     <?php 
   }
 
-    
-  }
 }
