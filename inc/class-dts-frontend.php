@@ -42,7 +42,7 @@ class Dts_Frontend extends Dts_Core {
       $top_sellers[$slug] = $dev_name;
     }
       
-    $out = self::render_developer_list( $top_sellers, $all_developers, $title, $show_all_developers_label, $all_developers_title );
+    $out = self::render_developer_list( $top_sellers, $all_developers, $title, $show_all_developers_label, $all_developers_title, $show_developers_label );
     
     $out .= self::render_product_list( $top_selling_products, $products_title );
     $out .= self::render_list_switcher( $show_products_label, $show_developers_label );
@@ -68,7 +68,8 @@ class Dts_Frontend extends Dts_Core {
    * @return string
    */
   public static function render_developer_list( array $devs, array $all_devs, 
-    string $title = 'Top Bestsellers', string $show_title = 'Show all', string $all_developers_title = 'All developers' ) {
+    string $title = 'Top Bestsellers', string $show_title = 'Show all', 
+    string $all_developers_title = 'All developers', string $show_top = 'Show top deveopers' ) {
     
     $out = '<div id="dts-developer-list-container">';
     $out .= '<div class="dts-developer-list-header" id="dts-list-top-sellers-header" ><h2 class="title">' . $title . '</h2></div>';
@@ -116,6 +117,7 @@ class Dts_Frontend extends Dts_Core {
     $out .= '</div>'; // close columns container 
     
     $out .= '<span id="dts-show-all-developers" class="dts-show-all">' . $show_title  .'</span></div>';
+    $out .= '<span id="dts-show-top-developers" class="dts-show-all" style="display:none ">' . $show_top  .'</span></div>';
     
     return $out;
   }
