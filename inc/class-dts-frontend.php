@@ -116,7 +116,7 @@ class Dts_Frontend extends Dts_Core {
     $out .= '</div>'; // close the last column
     $out .= '</div>'; // close columns container 
     
-    $out .= '<span id="dts-show-all-developers" class="dts-show-all">' . $show_title  .'</span></div>';
+    $out .= '<span id="dts-show-all-developers" class="dts-show-all">' . $show_title  .'</span>';
     $out .= '<span id="dts-show-top-developers" class="dts-show-all" style="display:none ">' . $show_top  .'</span></div>';
     
     return $out;
